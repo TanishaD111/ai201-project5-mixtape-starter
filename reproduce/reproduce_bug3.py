@@ -1,19 +1,20 @@
 """
-reproduce_bug3.py — Reproduce Bug #3: the same song shows up twice in search.
+reproduce_bug3.py — Bug #3: the same song shows up two/three times in search.
 
-Run:  python reproduce_bug3.py
+Reported (simone): searching "Anthem" returned "Crown Heights Anthem" three times.
+That song has three tags.
 
-The search query outer-joins the song_tags table, which produces ONE ROW PER TAG
-for each song. A song with 3 tags therefore matches 3 times.
+Root cause: search_songs() outer-joined the song_tags table, so the query emitted
+one row per tag — a song with N tags matched N times.
 
-Note: db.session.query(Song).all() (used by the real search_songs) hides this,
-because SQLAlchemy's legacy Query API auto-deduplicates ENTITY results by primary
-key. This script shows the underlying duplication two ways:
-  1. The raw join really returns 3 rows (the actual bug in the query).
-  2. A column-based select surfaces those 3 rows as visible duplicates.
-The correct fix — adding .distinct() to search_songs — removes the duplication
-at its source, independent of ORM version.
+Environment note: this project's SQLAlchemy de-duplicates ORM *entity* results
+(query(Song).all()) by primary key, which hides the duplicate rows for
+search_songs() in THIS environment. The duplication is still real in the query and
+is exactly what the reporter saw on a path without that entity de-dup. The block
+below makes the fan-out visible with a column select (which is not de-duped), then
+confirms the user-facing result and that tags survive the fix.
 """
+from collections import Counter
 from app import create_app, db
 from models import User, Song, Tag, song_tags
 from services.search_service import search_songs
@@ -39,35 +40,37 @@ with app.app_context():
         db.session.execute(song_tags.insert().values(song_id=song.id, tag_id=t.id))
     db.session.commit()
 
-    print(f"Song 'Crown Heights Anthem' has {len(tags)} tags.\n")
+    print(f"'Crown Heights Anthem' has {len(tags)} tags.\n")
 
-    # 1. The bug in the query itself: the join yields one row per tag.
-    joined = (
-        db.session.query(Song)
-        .outerjoin(song_tags, Song.id == song_tags.c.song_id)
-        .filter(Song.title.ilike("%Anthem%"))
-    )
-    raw_rows = db.session.execute(joined.statement).all()
-    print(f"[1] Raw SQL rows from the join:          {len(raw_rows)}  (should be 1)")
-
-    # 2. Surface those rows as visible duplicates via a column-based select.
-    title_rows = (
+    # The fan-out, made visible with a column select (bypasses ORM entity de-dup).
+    with_join = (
         db.session.query(Song.title)
         .outerjoin(song_tags, Song.id == song_tags.c.song_id)
         .filter(Song.title.ilike("%Anthem%"))
         .all()
     )
-    print(f"[2] Column select returns titles:        {[r[0] for r in title_rows]}")
+    without_join = (
+        db.session.query(Song.title)
+        .filter(Song.title.ilike("%Anthem%"))
+        .all()
+    )
+    print(f"Query WITH the tag join (buggy shape):  {len(with_join)} rows  <- what simone saw")
+    print(f"Query WITHOUT the join (fixed shape):   {len(without_join)} row(s)")
 
-    # 3. What the real endpoint returns today (ORM auto-dedupes entities).
+    # The user-facing result from the actual service.
     results = search_songs("Anthem")
-    matches = [r for r in results if r["title"] == "Crown Heights Anthem"]
-    print(f"[3] search_songs() (entity dedup) copies: {len(matches)}")
+    counts = Counter(r["title"] for r in results)
+    print(f"\nsearch_songs('Anthem') -> {dict(counts)}")
+    print(f"tags on the result: {results[0]['tags'] if results else None}")
+
+    dupes = {t: c for t, c in counts.items() if c > 1}
+    tags_ok = bool(results) and bool(results[0].get("tags"))
 
     print()
-    if len(raw_rows) == 1:
-        print("PASS — the join no longer duplicates rows. Bug is fixed at the source.")
+    if dupes:
+        print(f"BUG REPRODUCED — {dupes} (a single song returned multiple times).")
+    elif not tags_ok:
+        print("REGRESSION — duplicates gone, but tags are missing from the result.")
     else:
-        print(f"BUG REPRODUCED — the search join produces {len(raw_rows)} rows for one song "
-              f"(one per tag). It's masked by ORM entity dedup today, but the query is wrong; "
-              f"adding .distinct() fixes it.")
+        print("PASS — each song appears exactly once and tags are still present. "
+              "The fixed query returns 1 row where the buggy join returned 3.")

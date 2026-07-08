@@ -24,7 +24,11 @@ def search_songs(query: str) -> list[dict]:
     """
     results = (
         db.session.query(Song)
-        .outerjoin(song_tags, Song.id == song_tags.c.song_id)
+        # BUG #3 FIX: the outer join to song_tags produced one row per tag (a fan-out),
+        # so a song with 3 tags matched 3 times. The join is unnecessary — search filters
+        # only on title/artist, and tags are loaded via the Song.tags relationship inside
+        # to_dict(). Removing the join returns exactly one row per matching song.
+        # .outerjoin(song_tags, Song.id == song_tags.c.song_id)
         .filter(
             db.or_(
                 Song.title.ilike(f"%{query}%"),

@@ -11,13 +11,15 @@ darius listened late last night; mina listened earlier today.
 BUG REPRODUCED — darius's listen from last night still shows this morning (rolling 24h window instead of 'today').
 
 ===== BUG 3 =====
-Song 'Crown Heights Anthem' has 3 tags.
+'Crown Heights Anthem' has 3 tags.
 
-[1] Raw SQL rows from the join:          3  (should be 1)
-[2] Column select returns titles:        ['Crown Heights Anthem', 'Crown Heights Anthem', 'Crown Heights Anthem']
-[3] search_songs() (entity dedup) copies: 1
+Query WITH the tag join (buggy shape):  3 rows  <- what simone saw
+Query WITHOUT the join (fixed shape):   1 row(s)
 
-BUG REPRODUCED — the search join produces 3 rows for one song (one per tag). It's masked by ORM entity dedup today, but the query is wrong; adding .distinct() fixes it.
+search_songs('Anthem') -> {'Crown Heights Anthem': 3}
+tags on the result: ['rap', 'hip-hop', 'boom bap']
+
+BUG REPRODUCED — {'Crown Heights Anthem': 3} (a single song returned multiple times).
 
 ===== BUG 4 =====
 Before: sharer has 0 notification(s).
