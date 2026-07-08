@@ -1,14 +1,14 @@
 ===== BUG 1 =====
 After Saturday listen: streak = 1  (expected 1)
-After Sunday listen:   streak = 1  (expected 2)
+After Sunday listen:   streak = 2  (expected 2)
 
-BUG REPRODUCED — streak reset to 1 on Sunday instead of incrementing to 2.
+PASS — streak incremented correctly. Bug is not present.
 
 ===== BUG 2 =====
 darius listened late last night; mina listened earlier today.
-'Listening now' feed shows: ['mina', 'darius']
+'Listening now' feed shows: ['mina']
 
-BUG REPRODUCED — darius's listen from last night still shows this morning (rolling 24h window instead of 'today').
+PASS — only today's listeners appear (darius excluded, mina included).
 
 ===== BUG 3 =====
 'Crown Heights Anthem' has 3 tags.
@@ -16,16 +16,17 @@ BUG REPRODUCED — darius's listen from last night still shows this morning (rol
 Query WITH the tag join (buggy shape):  3 rows  <- what simone saw
 Query WITHOUT the join (fixed shape):   1 row(s)
 
-search_songs('Anthem') -> {'Crown Heights Anthem': 3}
+search_songs('Anthem') -> {'Crown Heights Anthem': 1}
 tags on the result: ['rap', 'hip-hop', 'boom bap']
 
-BUG REPRODUCED — {'Crown Heights Anthem': 3} (a single song returned multiple times).
+PASS — each song appears exactly once and tags are still present. The fixed query returns 1 row where the buggy join returned 3.
 
 ===== BUG 4 =====
-Before: sharer has 0 notification(s).
-After friend rated the song 5/5: sharer has 0 notification(s).
+Before: aaliya has 0 notification(s).
+After kenji rated the song 5/5: aaliya has 1 notification(s).
 
-BUG REPRODUCED — rating the shared song produced NO notification for the sharer.
+PASS — rating produced a notification. Bug is not present.
+       Notification body: "kenji rated your song 'My Track' 5/5."
 
 ===== BUG 5 =====
 Playlist has 5 songs. get_playlist_songs returned 4:
