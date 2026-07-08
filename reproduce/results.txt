@@ -1,5 +1,42 @@
 ===== BUG 1 =====
 After Saturday listen: streak = 1  (expected 1)
+After Sunday listen:   streak = 1  (expected 2)
+
+BUG REPRODUCED — streak reset to 1 on Sunday instead of incrementing to 2.
+
+===== BUG 2 =====
+darius listened late last night; mina listened earlier today.
+'Listening now' feed shows: ['mina', 'darius']
+
+BUG REPRODUCED — darius's listen from last night still shows this morning (rolling 24h window instead of 'today').
+
+===== BUG 3 =====
+'Crown Heights Anthem' has 3 tags.
+
+Query WITH the tag join (buggy shape):  3 rows  <- what simone saw
+Query WITHOUT the join (fixed shape):   1 row(s)
+
+search_songs('Anthem') -> {'Crown Heights Anthem': 3}
+tags on the result: ['rap', 'hip-hop', 'boom bap']
+
+BUG REPRODUCED — {'Crown Heights Anthem': 3} (a single song returned multiple times).
+
+===== BUG 4 =====
+Before: aaliya has 0 notification(s).
+After kenji rated the song 5/5: aaliya has 0 notification(s).
+
+BUG REPRODUCED — rating the shared song produced NO notification for the sharer.
+
+===== BUG 5 =====
+Playlist has 5 songs. get_playlist_songs returned 4:
+  Track 1, Track 2, Track 3, Track 4
+
+BUG REPRODUCED — only 4 of 5 songs returned; the last one ('Track 5') is missing.
+
+================= ================= ================= ================= =================
+
+===== BUG 1 =====
+After Saturday listen: streak = 1  (expected 1)
 After Sunday listen:   streak = 2  (expected 2)
 
 PASS — streak incremented correctly. Bug is not present.
@@ -29,7 +66,11 @@ PASS — rating produced a notification. Bug is not present.
        Notification body: "kenji rated your song 'My Track' 5/5."
 
 ===== BUG 5 =====
-Playlist has 5 songs. get_playlist_songs returned 4:
-  Track 1, Track 2, Track 3, Track 4
+Playlist has 7 songs. get_playlist_songs returned 7:
+  Song 1, Song 2, Song 3, Song 4, Song 5, Song 6, Song 7
 
-BUG REPRODUCED — only 4 of 5 songs returned; the last one ('Track 5') is missing.
+After adding Song 8, playlist has 8 songs. Returned 8:
+  Song 1, Song 2, Song 3, Song 4, Song 5, Song 6, Song 7, Song 8
+
+PASS — every song is returned, including the most recently added.
+

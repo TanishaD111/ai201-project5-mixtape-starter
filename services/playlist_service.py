@@ -63,7 +63,10 @@ def get_playlist_songs(playlist_id: str) -> list[dict]:
         .all()
     )
 
-    return [song.to_dict() for song in songs[:-1]]
+    # BUG #5 FIX: `songs[:-1]` sliced off the last element, dropping the most recently
+    # added song (highest position) from every playlist. Return the full list.
+    # return [song.to_dict() for song in songs[:-1]]
+    return [song.to_dict() for song in songs]
 
 
 def get_playlist(playlist_id: str) -> dict:
