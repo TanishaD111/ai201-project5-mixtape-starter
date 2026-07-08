@@ -4,6 +4,20 @@ Mixtape is a social music app where friends share songs, build collaborative pla
 
 ---
 
+## AI Usage
+
+I used AI as an *explainer and sanity-checker*, not as a bug-finder. My workflow for every issue was the same: read the code from the route down to the service myself, form a hypothesis about the cause, then use AI to confirm the mechanics of whatever language/library behavior my hypothesis depended on — and finally verify by running the code (a reproduction script or the tests) before changing anything. Navigating the codebase (route → service → the specific function) and locating each suspicious line was done by reading, not by asking AI where the bug was.
+
+**What AI helped me understand.** Specific, verifiable mechanics once I'd already narrowed things down: that Python's `datetime.weekday()` returns 6 for Sunday (Issue #1); the difference between a rolling elapsed-time window (`now - 24h`) and a fixed calendar-day boundary (Issue #2); why an outer join to a one-to-many table (`song_tags`) multiplies result rows, and separately why SQLAlchemy's legacy `Query` still returned a single entity despite the join producing three rows — its automatic entity de-duplication by primary key (Issue #3); Python slice semantics, i.e. that `list[:-1]` drops the last element and empties a 0- or 1-element list (Issue #5). For Issue #4, AI was used only to sanity-check notification wording and that reusing the existing `song.shared_by != user_id` self-notification guard was appropriate.
+
+**Where I verified AI output.** Every explanation was checked against the running code rather than taken on faith. For Issue #3 in particular, AI's claim that the join fans out and that entity de-dup masks it was confirmed by executing both queries myself: a column-based select returned 3 rows while `query(Song).all()` returned 1. Reproduction scripts (`reproduce/reproduce_bug*.py`) and the pytest suite were the final arbiters for every fix.
+
+**Where I overrode AI (and my own first instinct).** Issue #2 is the best example. My initial fix was to shrink the "recent" window to a few minutes so it meant "now." The human-written issue report overrode that in the example because it said the feed should show what friends played *today*, and gave the concrete detail that an 8am listen should still appear at 9am. A short rolling window would have wrongly hidden that same-day listen. The report reframed the fix from "smaller rolling window" to "calendar-day boundary," which is a good reminder that a plausible AI-supported diagnosis can still be wrong, and that the reporter's actual description is the authority.
+
+Per-issue AI-usage notes are included in each Root Cause Analysis entry below.
+
+---
+
 ## Main Files
 
 ### Top level
