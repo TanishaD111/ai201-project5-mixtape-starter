@@ -18,6 +18,14 @@ Per-issue AI-usage notes are included in each Root Cause Analysis entry below.
 
 ---
 
+## Commits
+
+Each bug fix is its own commit on the `bugfix/mixtape` branch:
+
+![git log --oneline on the bugfix/mixtape branch showing a separate commit for each bug fix](terminal.png)
+
+---
+
 ## Main Files
 
 ### Top level
