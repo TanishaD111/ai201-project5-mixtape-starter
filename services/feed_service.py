@@ -10,7 +10,12 @@ from app import db
 from models import User, Song, ListeningEvent
 
 
-RECENT_THRESHOLD = timedelta(hours=24)
+# BUG #2 FIX: "Friends Listening Now" should show only friends who have listened
+# TODAY. The original code used a rolling 24-hour window (cutoff = now - 24h), so a
+# friend's late-night listen kept appearing until the same clock time the next day
+# (e.g. an 11pm listen still showed at 9am the next morning). The cutoff is now the
+# start of the current calendar day (UTC), computed per-request in the function below.
+# RECENT_THRESHOLD = timedelta(hours=24)
 
 
 def get_friends_listening_now(user_id: str) -> list[dict]:
@@ -29,7 +34,9 @@ def get_friends_listening_now(user_id: str) -> list[dict]:
     if not user:
         raise ValueError(f"User {user_id} not found")
 
-    cutoff = datetime.now(timezone.utc) - RECENT_THRESHOLD
+    # cutoff = datetime.now(timezone.utc) - RECENT_THRESHOLD
+    now = datetime.now(timezone.utc)
+    cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0)  # start of today (UTC)
     friend_ids = [f.id for f in user.friends]
 
     if not friend_ids:

@@ -5,10 +5,10 @@ After Sunday listen:   streak = 1  (expected 2)
 BUG REPRODUCED — streak reset to 1 on Sunday instead of incrementing to 2.
 
 ===== BUG 2 =====
-Friend last listened 23 hours ago.
-'Listening now' feed returned 1 entr(y/ies): ['friend']
+darius listened late last night; mina listened earlier today.
+'Listening now' feed shows: ['mina', 'darius']
 
-BUG REPRODUCED — a listen from 23h ago still shows in 'listening now' (the 24h window is too wide for a 'now' feed).
+BUG REPRODUCED — darius's listen from last night still shows this morning (rolling 24h window instead of 'today').
 
 ===== BUG 3 =====
 Song 'Crown Heights Anthem' has 3 tags.
