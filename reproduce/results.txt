@@ -1,0 +1,32 @@
+===== BUG 1 =====
+After Saturday listen: streak = 1  (expected 1)
+After Sunday listen:   streak = 1  (expected 2)
+
+BUG REPRODUCED — streak reset to 1 on Sunday instead of incrementing to 2.
+
+===== BUG 2 =====
+Friend last listened 23 hours ago.
+'Listening now' feed returned 1 entr(y/ies): ['friend']
+
+BUG REPRODUCED — a listen from 23h ago still shows in 'listening now' (the 24h window is too wide for a 'now' feed).
+
+===== BUG 3 =====
+Song 'Crown Heights Anthem' has 3 tags.
+
+[1] Raw SQL rows from the join:          3  (should be 1)
+[2] Column select returns titles:        ['Crown Heights Anthem', 'Crown Heights Anthem', 'Crown Heights Anthem']
+[3] search_songs() (entity dedup) copies: 1
+
+BUG REPRODUCED — the search join produces 3 rows for one song (one per tag). It's masked by ORM entity dedup today, but the query is wrong; adding .distinct() fixes it.
+
+===== BUG 4 =====
+Before: sharer has 0 notification(s).
+After friend rated the song 5/5: sharer has 0 notification(s).
+
+BUG REPRODUCED — rating the shared song produced NO notification for the sharer.
+
+===== BUG 5 =====
+Playlist has 5 songs. get_playlist_songs returned 4:
+  Track 1, Track 2, Track 3, Track 4
+
+BUG REPRODUCED — only 4 of 5 songs returned; the last one ('Track 5') is missing.
