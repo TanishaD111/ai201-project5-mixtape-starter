@@ -109,3 +109,19 @@ notification_service.create_notification(
 - **IDs are UUID strings, not numbers.** Every record gets a random UUID as its primary key.
 
 - **The three feature areas mirror each other.** Songs, playlists, users, and feed each have a route file and (mostly) a matching service file, all following the same shape. Once you've read one, the rest are familiar.
+
+---
+
+## Root Cause Analysis
+
+### Issue #1 — My listening streak keeps resetting
+
+**How I reproduced it.** I wrote a small script (`reproduce/reproduce_bug1.py`) that creates one user and calls `update_listening_streak` twice with fixed dates: Saturday 2024-06-15, then Sunday 2024-06-16 (two consecutive calendar days). After the Saturday call the streak was 1 (correct); after the Sunday call it was still 1, when a consecutive day should have made it 2. I used fixed dates in a script rather than the live `/songs/<id>/listen` endpoint because that endpoint stamps events with `datetime.now()`, so reproducing a Saturday→Sunday sequence through HTTP would mean waiting for a real weekend. The existing test `test_streak_increments_on_sunday` fails for the same reason, which confirmed the behavior independently.
+
+**How I found the root cause.** Starting from the route: `POST /songs/<id>/listen` in `routes/songs.py` calls `record_listening_event` in `services/streak_service.py`, which creates the `ListeningEvent` and then delegates the streak math to `update_listening_streak`. Reading that function, the streak is only ever reset in one place — the `else` branch of the day-difference comparison (lines ~70–78). The moment I was confident: the `elif` guarding the increment read `elif days_since_last == 1 and today.weekday() != 6:`. The `days_since_last == 1` part is exactly the "consecutive day" case that should increment, so the extra `and today.weekday() != 6` clause was the only thing that could send a genuine consecutive day into the reset branch — and only when `today` is a Sunday.
+
+**The root cause.** Python's `datetime.weekday()` returns 6 for Sunday. The condition required `today.weekday() != 6` *in addition to* the day being consecutive, so when a user listened on a Sunday exactly one day after their previous listen (e.g. Saturday then Sunday), the `elif` evaluated to `False`. Control fell through to the `else` branch, which sets `listening_streak = 1`. The result: any streak that continued into a Sunday was reset instead of incremented. A streak is about consecutive calendar days, so the day of the week is irrelevant — the weekday check never belonged there.
+
+**My fix and side-effect check.** I removed the `and today.weekday() != 6` clause so the branch is simply `elif days_since_last == 1:` (the original line is left commented directly above the fix for reference). This is the smallest change that addresses the root cause — it touches only the faulty condition and no surrounding logic. To confirm I hadn't broken the other cases, I ran the full `tests/test_streaks.py` suite (all 5 pass): new user starts at 1, listening twice the same day doesn't double-count, a skipped day still resets to 1, an ordinary consecutive day (Mon→Tue) still increments, and the previously failing Sunday case now increments. I checked both sides of the boundary specifically — the consecutive-day increment now fires on every weekday including Sunday, and a two-day gap (`days_since_last == 2`) still correctly falls to the reset branch.
+
+**AI usage.** After I had already read `update_listening_streak` and narrowed the problem to the weekday clause, I used AI to confirm my understanding of what `datetime.weekday()` returns for each day (Monday=0 … Sunday=6), which verified that `== 6` meant Sunday. I read the code and confirmed the diagnosis myself before changing anything; AI was used to explain a standard-library detail, not to locate the bug.
